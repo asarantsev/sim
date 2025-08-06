@@ -10,10 +10,11 @@ import matplotlib.pyplot as plt
 from scipy import stats
 from matplotlib.ticker import FuncFormatter
 
-# introductory commands
+np.random.seed(0)
+
+# # introductory commands
 app = Flask(__name__)
 app.config["DEBUG"] = True
-np.random.seed(0)
 current_dir = os.path.abspath(os.path.dirname(__file__))
 dataFile = os.path.join(current_dir, 'static', 'filled.xlsx')
 outputPNG = os.path.join(current_dir, 'static', 'wealth.png')
@@ -47,7 +48,7 @@ currBubble = -0.193141 + np.log(6204.95 + 19.37 + 19.48) - np.log(5881.63)
 DIM = 7 # number of dimensions
 NDATA = 97 # number of data points
 
-NSIMS = 1600 # number of Monte Carlo simulations
+NSIMS = 10000 # number of Monte Carlo simulations
 
 # displayed wealth tiem series graphs in Monte Carlo simulations
 NDISPLAYS = 5 # number of graphs
@@ -84,11 +85,24 @@ def simKDE(data, N, dim, nYears):
     noise = np.transpose(np.array(noise), (1, 2, 0)) # need to swap coordinates to sum with 'pick'
     return pick + np.array(noise)
 
+# This is a technical function for computing cumulative earnings series
+# over the last 'window' years
 def summation(data, length, window):
     output = np.zeros((NSIMS, length - window + 1))
     for k in range(window):
         output = output + data[:, k:k + length - window + 1]
     return output
+
+# This function converts wealth dynamics over one year from annual
+# withdrawals/contributions to more frequent flows
+# 'freq' is the number of flows per year, monthly = 12, quarterly = 4
+# 'annual' = annual returns, 'wealth' = initial wealth
+# output = wealth by end of year
+# Here we have only one year and only one simulation
+# The function is deterministic, we could not agree on a stochastic model
+def freqSwitch(annual, freq, flow, wealth):
+    mean = (flow/freq) / (1 - (1 +  annual)**(1/freq))
+    return (wealth - mean) * (1 + annual) + mean
 
 # simulate portfolio returns
 # first two arguments are initial volatility and rate
@@ -188,7 +202,8 @@ def simReturns(initVol, initBubble, initRate, initSpread, initEarn, nYears, bond
 # others are: initialW = initialWealth and
 # initialFlow (signed value) = first year flow: contribution (+) or withdrawal (-)
 # growthFlow (signed value) = annual growth (+) or decline (-) of flow
-def simWealth(initVol, initBubble, initRate, initSpread, initEarn, initialW, initialFlow, growthFlow, nYears, bondShare0, bondShare1, intlShare):
+# freq = frequency of flows (contributions/withdrawals)
+def simWealth(initVol, initBubble, initRate, initSpread, initEarn, initialW, initialFlow, growthFlow, nYears, bondShare0, bondShare1, intlShare, freq):
 
     #simulate returns of this portfolio
     simRet = simReturns(initVol, initBubble, initRate, initSpread, initEarn, nYears, bondShare0, bondShare1, intlShare)
@@ -201,20 +216,14 @@ def simWealth(initVol, initBubble, initRate, initSpread, initEarn, initialW, ini
     flow = initialFlow * np.exp(np.array(range(nYears)) * np.log(1 +  growthFlow))
 
     # this is the main function connecting wealth to returns and flow
-    if initialFlow < 0:
-        for sim in range(NSIMS):
-            for t in range(nYears):
-                # main equation connecting returns, flow, wealth
-                wealth[sim, t + 1] = wealth[sim, t] * (1 + simRet[sim, t]) + flow[t]
-                if wealth[sim, t + 1] <= 0:
-                    pathData[sim] = t + 1 # record ruin year in place of average returns
-                    wealth[sim, t + 1:] = 0 # all future wealth is zero
-                    break # and stop this particular simulation
-
-    else: # if no withdrawals then we do not need to check for bankruptcy
+    for sim in range(NSIMS):
         for t in range(nYears):
             # main equation connecting returns, flow, wealth
-            wealth[:, t+1] = wealth[:, t] * (1 + simRet[:, t]) + flow[t] * np.ones(NSIMS)
+            wealth[sim, t + 1] = freqSwitch(simRet[sim, t], freq, flow[t], wealth[sim, t])
+            if wealth[sim, t + 1] <= 0:
+                pathData[sim] = t + 1 # record ruin year in place of average returns
+                wealth[sim, t + 1:] = 0 # all future wealth is zero
+                break # and stop this particular simulation
 
     # timeAvgRet = average total portfolio return array over each path
     # wealth = paths of wealth
@@ -259,38 +268,34 @@ def allTicks(horizon):
 # need to print this in the legend to the right of the main picture
 # to remind the investor about their inputs
 # the arguments are the same as for 'simWealth' except initial volatility
-def setupText(initialWealth, initialFlow, growthFlow, timeHorizon, bondShare0, bondShare1, intlShare):
+def setupText(initialWealth, initialFlow, growthFlow, timeHorizon, bondShare0, bondShare1, intlShare, freq):
 
     # This part is text description of flow (contributions or withdrawals)
     # Initial value for year 1 and rate of annual increase/decrease
     if initialFlow == 0:
-        initialFlowText = 'No regular contributions or withdrawals'
-        growthText = ''
-    # case when contributions
-    if initialFlow > 0:
-        initFlow = form(initialFlow)
+        combinedFlowText = 'No regular contributions or withdrawals'
+    else:
+        if initialFlow > 0:
+            flowText = 'ANNUAL CONTRIBUTIONS'
+        if initialFlow < 0:
+            flowText = 'ANNUAL WITHDRAWALS'
         if growthFlow == 0: # no change in contributions from year to year
-            initialFlowText = 'Constant contributions ' + initFlow
+            initFlowText = 'Constant ' + form(abs(initialFlow))
             growthText = ''
         else:
-            initialFlowText = 'Initial contributions ' + initFlow
+            initFlowText = 'Initial ' + form(abs(initialFlow))
             if growthFlow > 0:
-                growthText = 'annual increase in contributions ' + percent(growthFlow)
+                growthText = 'Annual increase ' + percent(growthFlow)
             if growthFlow < 0:
-                growthText = 'annual decrease in contributions ' + percent(abs(growthFlow))
-
-    # case when withdrawals
-    if initialFlow < 0:
-        initFlow = form(abs(initialFlow))
-        if growthFlow == 0: # no change in withdrawals from year to year
-            initialFlowText = 'Constant withdrawals ' + initFlow
-            growthText = ''
-        else:
-            initialFlowText = 'Initial withdrawals ' + initFlow
-            if growthFlow > 0:
-                growthText = 'annual increase in withdrawals ' + percent(growthFlow)
-            if growthFlow < 0:
-                growthText = 'annual decrease in withdrawals ' + percent(abs(growthFlow))
+                growthText = 'Annual decrease ' + percent(abs(growthFlow))
+        if freq == 1:
+            freqText = 'Frequency: once a year'
+        if freq == 4:
+            freqText = 'Frequency: every quarter'
+        if freq == 12:
+            freqText = 'Frequency: monthly'
+        allFlowTexts = [flowText, initFlowText, growthText, freqText]
+        combinedFlowText = '\n'.join(allFlowTexts)
 
     # text output explaining portfolio weights
     # for example 33% American: S&P 500 and 67% International: MSCI EAFE
@@ -311,7 +316,7 @@ def setupText(initialWealth, initialFlow, growthFlow, timeHorizon, bondShare0, b
     initWealthText = 'Initial Wealth ' + form(initialWealth)
 
     # return all these texts combined
-    texts = [simText, usText, intlText, initText, startText, endText, timeText + ' ' + initWealthText, initialFlowText + ' ' + growthText]
+    texts = [simText, usText, intlText, initText, startText, endText, timeText, initWealthText, '\n' + combinedFlowText]
 
     # combine all these texts and return combined text
     return 'SETUP: ' + '\n'.join(texts)
@@ -336,17 +341,17 @@ def advancedText(initVol, initBubble, initRate, initSpread):
 # advanced = True if we are in complete simulator page
 # advanced = False if we are in the main simulator page
 
-def output(initVol, initBubble, initRate, initSpread, initialW, initialFlow, growthFlow, timeHorizon, bondShare0, bondShare1, intlShare, advanced):
+def output(initVol, initBubble, initRate, initSpread, initialW, initialFlow, growthFlow, timeHorizon, bondShare0, bondShare1, intlShare, advanced, freq):
 
     # case when we are in advanced simulator in complete page
     if advanced:
         # simulate wealth process of a portfolio
-        pathData, paths = simWealth(initVol, initBubble, initRate, initSpread, currEarn, initialW, initialFlow, growthFlow, timeHorizon, bondShare0, bondShare1, intlShare)
+        pathData, paths = simWealth(initVol, initBubble, initRate, initSpread, currEarn, initialW, initialFlow, growthFlow, timeHorizon, bondShare0, bondShare1, intlShare, freq)
 
     # case when we are in the main simulator in landing page
     if not advanced:
         # simulate wealth process of a portfolio
-        pathData, paths = simWealth(currVol, currBubble, currRate, currSpread, currEarn, initialW, initialFlow, growthFlow, timeHorizon, bondShare0, bondShare1, intlShare)
+        pathData, paths = simWealth(currVol, currBubble, currRate, currSpread, currEarn, initialW, initialFlow, growthFlow, timeHorizon, bondShare0, bondShare1, intlShare, freq)
 
     # take average total portfolio return over each path
     # and pick paths which do not end in bankruptcy (ruin)
@@ -388,7 +393,7 @@ def output(initVol, initBubble, initRate, initSpread, initialW, initialFlow, gro
     # text for setup which is in the main legend for the plot
     # so that user sees output image in a different page than inputs
     # and does not forget these inputs
-    SetupText = setupText(initialW, initialFlow, growthFlow, timeHorizon, bondShare0, bondShare1, intlShare)
+    SetupText = setupText(initialW, initialFlow, growthFlow, timeHorizon, bondShare0, bondShare1, intlShare, freq)
 
     # if we are on complete simulator page
     if advanced:
@@ -434,7 +439,7 @@ def output(initVol, initBubble, initRate, initSpread, initialW, initialFlow, gro
         # For the advanced version of the simulator, we have more setup data
         # since we choose initial conditions ourselves
         # so font needs to be smaller
-        legendSize = 11
+        legendSize = 10
     else:
         # For the main version of the simulator, we have less setup data
         # since we do not choose initial conditions
@@ -477,7 +482,10 @@ def readInput():
     # Annual change amount for withdrawals or contributions converted from %
     growthFlow = float(request.form['growthFlow'])*0.01*change
 
-    return bond0, bond1, intl, nYears, initialWealth, initialFlow, growthFlow
+    # frequency of contributions or withdrawals
+    frequency = int(request.form.get('freq'))
+
+    return bond0, bond1, intl, nYears, initialWealth, initialFlow, growthFlow, frequency
 
 # main landing page for the main version of the simulator
 @app.route('/')
@@ -492,7 +500,7 @@ def completePage():
 # function which downloads the results in a PDF file when clicking on a link
 @app.route('/download')
 def downloadFile():
-    return send_file(outputPDF, as_attachment=True)
+    return send_file(outputPDF, as_attachment = True)
 
 # main function executing when click Submit
 # differs from the main landing page by /compute
@@ -500,10 +508,10 @@ def downloadFile():
 def mainComputation():
 
     # read the input data on portfolio and actions
-    bond0, bond1, intl, nYears, initialWealth, initialFlow, growthFlow = readInput()
+    bond0, bond1, intl, nYears, initialWealth, initialFlow, growthFlow, frequency = readInput()
 
     # Draw the PNG picture with simulation results and graphs
-    output(currVol, currBubble, currRate, currSpread, initialWealth, initialFlow, growthFlow, nYears, bond0, bond1, intl, False)
+    output(currVol, currBubble, currRate, currSpread, initialWealth, initialFlow, growthFlow, nYears, bond0, bond1, intl, False, frequency)
 
     # the response page after clicking Submit, with this PNG picture
     return render_template('response_page.html')
@@ -519,10 +527,10 @@ def advancedComputation():
     initSpread = float(request.form.get('initSpread')) # long-short spread
 
     # read input for portfolio and actions
-    bond0, bond1, intl, nYears, initialWealth, initialFlow, growthFlow = readInput()
+    bond0, bond1, intl, nYears, initialWealth, initialFlow, growthFlow, frequency = readInput()
 
     # Draw the PNG picture with simulation results and graphs
-    output(initVol, initBubble, initRate, initSpread, initialWealth, initialFlow, growthFlow, nYears, bond0, bond1, intl, True)
+    output(initVol, initBubble, initRate, initSpread, initialWealth, initialFlow, growthFlow, nYears, bond0, bond1, intl, True, frequency)
 
     # the response page after clicking Submit, with this PNG picture
     return render_template('response_page.html')
