@@ -77,13 +77,21 @@
         </p>
         <p align = "center">
             <label for = 'change'> Increase or decrease withdrawals/contributions? </label>
-                <select name = 'change' style = "height:25px;font-size:20px;background-color: HoneyDew;" required>
-                    <option value = "+1"> Increase </option>
-                    <option value = "-1"> Decrease </option>
-                </select>
+            <select name = 'change' style = "height:25px;font-size:20px;background-color: HoneyDew;" required>
+                <option value = "+1"> Increase </option>
+                <option value = "-1"> Decrease </option>
+            </select>
             <label for = 'growthFlow'> Annually By % </label>
                 <input type="number" name="growthFlow" value = "0"
                 style="height:25px;width:70px;font-size:20px;background-color: HoneyDew;" step = "0.1" min = "0" max = "100" required>
         </p>
+	<p align = "center">
+		<label for = 'freq'> Frequency of withdrawals/contributions? </label>
+		<select name = 'freq' style = "height:25px;font-size:20px;background-color: HoneyDew;" required>
+			<option value = "1"> Annual </option>
+            <option value = "12"> Monthly </option>
+            <option value = "4"> Quarterly </option>
+		</select>
+	</p>
         </form> </div>
         </body> </html>
