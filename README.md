@@ -6,17 +6,21 @@ innovations.xlsx: Residuals of 7 regressions of the main model with missing data
 
 filled.xlsx: Residuals of 7 regressions of the main model with filled missing data file, after applying innovations.py
 
-corrMatrix.xlsx: Correlation matrix for 8 residuals of the main model
+corrMatrix.xlsx: Correlation matrix for 8 residuals of the main model, after main.py
 
-flask_app.py: Python/Flask back end of the simulator
+MonteCarlo.py: Do Monte Carlo simulation to find critical values for skewness, kurtosis, and L1 for ACF, Section 3
 
-main.py: Fitting the main model, Section 6
+simple.py: Fit the simple model, Section 4
 
-simple.py: Fitting the simple model, Section 4
+bubble.py: Fit the valuation measure, Section 5
 
-bubble.py: Fitting the valuation measure, Section 5
+window.py: Choose the averaging window for earnings, Section 5
 
-innovations.py: Filling missing data for innovations
+main.py: Fit the main model, Section 6
+
+innovations.py: Filling missing data for innovations to turn innovations.xlsx into filled.xlsx, Section 7
+
+flask_app.py: Python/Flask back end of the simulator, Section 7
 
 main_page.html: Landing page front end for the simulator
 
