@@ -177,7 +177,7 @@ def simReturns(initVol, initBubble, initRate, initSpread, initEarn, nYears, bond
         simGeomUS[:, t] = 0.26851 * np.ones(NSIMS) - 0.013568 * simVol[:, t + 1] - 0.078238 * simD[:, t] - 0.164398 * simBubble[:, t] - 0.03412 * simSpread[:, t] + simVol[:, t + 1] * noiseUS[:, t]
 
         # compute the next step of the bubble measure
-        simBubble[:, t + 1] = simGeomUS[:, t] - simCumEarnGr[:, t] - 0.0452742 * np.ones(NSIMS)
+        simBubble[:, t + 1] = simBubble[:, t] + simGeomUS[:, t] - simCumEarnGr[:, t] - 0.0452742 * np.ones(NSIMS)
 
     # simulate geometric returns of international stocks
     simGeomIntl = 0.268868 * np.ones((NSIMS, nYears)) - 0.018790 * simVol[:, 1:] - 0.051445 * simD - 0.094098 * simBubble[:, :-1] + noiseIntl * simVol[:, 1:]
