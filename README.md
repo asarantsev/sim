@@ -1,4 +1,4 @@
-Code and data for the article A Time Series Model for Three Asset Classes Used in Financial Simulator
+Code and data for the article Valuation Measure of the Stock Market using Stochastic Volatility and Stock Earnings https://arxiv.org/abs/2508.06010 
 
 data.xlsx: Main data file
 
