@@ -30,10 +30,14 @@ response_page.html: Front end: page after Submit
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-UPDATE Sep 1, 2026: We apply the Box-Cox transforms to one-dimensional stationary data series to see which one can be made Gaussian. See the blog post https://my-finance.org/2026/08/31/the-box-cox-transform-and-its-use-for-financial-data/ This is not yet included into our manuscript above.
+UPDATE Sep 1, 2026: We apply the Box-Cox transforms to one-dimensional stationary data series to see which one can be made Gaussian. See the blog post https://my-finance.org/2026/08/31/the-box-cox-transform-and-its-use-for-financial-data/ This is not yet included into our manuscript above. See the folder BCX.
 
 box-cox-vol.py discusses volatility and application of Box-Cox transforms to it. We succeed in making it Gaussian. 
 
 box-cox-resid.py applies Box-Cox transforms to each other (exponentiated) non-Gaussian series of residuals. We succeeded for rate and the valuation measure and failed for spread and earnings growth. Thus we cannot hope to normalize residuals by simply applying these transforms. 
 
 box-cox-main.py applies the Box-Cox transform to the following series: BAA rate; exponentiated long-short term spread; exponentiated earnings growth; and testing autoregression residuals for the transformed data for each of these three for IID Gaussian; also, exponentiated returns of each of the three asset classes.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+UPDATE Sep 1, 2026: Also, we use Bayesian analysis for the simplest model: Volatility and S&P Returns (nominal). We do both Bayesian lite (posterior only for regression coefficients, keeping the covariance matrix constant) and Bayesian-full (posterior for standard errors and regression coefficients, keeping the correlation matrix constant), comparing these with the classic frequentist model. We also consider the various withdrawal rules. https://my-finance.org/2026/08/28/bayesian-analysis-introduction/ We put the data file (a subset of the main full data file) and the Python code file in the folder bayesian.
