@@ -30,7 +30,7 @@ response_page.html: Front end: page after Submit
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-UPDATE Sep 1, 2026: We apply the Box-Cox transforms to one-dimensional stationary data series to see which one can be made Gaussian. 
+UPDATE Sep 1, 2026: We apply the Box-Cox transforms to one-dimensional stationary data series to see which one can be made Gaussian. See the blog post https://my-finance.org/2026/08/31/the-box-cox-transform-and-its-use-for-financial-data/ This is not yet included into our manuscript above.
 
 box-cox-vol.py discusses volatility and application of Box-Cox transforms to it. We succeed in making it Gaussian. 
 
