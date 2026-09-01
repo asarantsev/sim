@@ -30,4 +30,10 @@ response_page.html: Front end: page after Submit
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-UPDATE: box-cox-vol.py discusses volatility and application of Box-Cox transforms to it. We succeed to make it Gaussian. And box-cox-resid.py applies Box-Cox transforms to each other non-Gaussian series of residuals. We succeeded for some and failed for spread and earnings growth. Thus we cannot hope to normalize residuals by simply applying these transforms. 
+UPDATE Sep 1, 2026: We apply the Box-Cox transforms to one-dimensional stationary data series to see which one can be made Gaussian. 
+
+box-cox-vol.py discusses volatility and application of Box-Cox transforms to it. We succeed in making it Gaussian. 
+
+box-cox-resid.py applies Box-Cox transforms to each other non-Gaussian series of residuals. We succeeded for some and failed for spread and earnings growth. Thus we cannot hope to normalize residuals by simply applying these transforms. 
+
+box-cox-main.py applies the Box-Cox transform to the following series (with index indicated): BAA rate (successful, -0.2425); exponentiated long-short term spread (successful, 0.1353); exponentiated earnings growth (failed); exp(log US returns) (successful, 1.8403); exp(log intl returns) (successful, 0.8599); exp(log bond returns) (successful, -0.2881). 
