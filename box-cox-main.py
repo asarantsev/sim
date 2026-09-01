@@ -36,24 +36,29 @@ dividend = dfPrice['Dividends'].values[1:]
 baa = dfPrice['BAA'].values
 spread = dfPrice['Long'].values - dfPrice['Short'].values
 
+# Box-Cox transform for BAA rates and exponentiated long-short spread
 verification(BoxCox(baa, 'BAA'))
 AR(BoxCox(baa, 'BAA'), 'BAA')
 verification(BoxCox(np.exp(spread), 'exp-spread'))
 AR(BoxCox(np.exp(spread), 'exp-spread'), 'exp-spread')
 
+# For exponentiated earnings growth
 dfEarnings = DF['earnings']
 earnings = dfEarnings['Earnings'].values
 gearn = earnings[1:]/earnings[:-1]
 verification(BoxCox(gearn, 'earn-growth'))
 
+# US stock returns
 total = np.array([np.log(price[k+1] + dividend[k]) - np.log(price[k]) for k in range(N)])
 verification(BoxCox(np.exp(total), 'USA'))
 
+# International stock returns
 world = DF['world'] 
 intlReturns = world['International'].values # international returns
 IntlRet = np.log(1 + intlReturns)
 verification(BoxCox(np.exp(IntlRet), 'intl'))
 
+# Corporate bond returns
 bonds = DF['bonds']
 wealthBond = bonds['Bond Wealth'].values
 verification(BoxCox(wealthBond[1:]/wealthBond[:-1], 'bonds'))
