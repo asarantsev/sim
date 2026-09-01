@@ -36,4 +36,4 @@ box-cox-vol.py discusses volatility and application of Box-Cox transforms to it.
 
 box-cox-resid.py applies Box-Cox transforms to each other (exponentiated) non-Gaussian series of residuals. We succeeded for rate and the valuation measure and failed for spread and earnings growth. Thus we cannot hope to normalize residuals by simply applying these transforms. 
 
-box-cox-main.py applies the Box-Cox transform to the following series (with index indicated): BAA rate (successful, -0.2425); exponentiated long-short term spread (successful, 0.1353); exponentiated earnings growth (failed); exp(log US returns) (successful, 1.8403); exp(log intl returns) (successful, 0.8599); exp(log bond returns) (successful, -0.2881). 
+box-cox-main.py applies the Box-Cox transform to the following series: BAA rate; exponentiated long-short term spread; exponentiated earnings growth; and testing autoregression residuals for the transformed data for each of these three for IID Gaussian; also, exponentiated returns of each of the three asset classes.
