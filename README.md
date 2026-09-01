@@ -30,4 +30,4 @@ response_page.html: Front end: page after Submit
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-UPDATE: box-cox-vol.py discusses volatility and application of Box-Cox transforms to it. We succeed to make it Gaussian. 
+UPDATE: box-cox-vol.py discusses volatility and application of Box-Cox transforms to it. We succeed to make it Gaussian. And box-cox-resid.py applies Box-Cox transforms to each other non-Gaussian series of residuals. We succeeded for some and failed for spread and earnings growth. Thus we cannot hope to normalize residuals by simply applying these transforms. 
