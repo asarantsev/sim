@@ -1,123 +1,127 @@
 import pandas as pd
 import numpy as np
 from statsmodels.api import OLS
-import matplotlib.pyplot as plt
 from scipy import stats
-from statsmodels.graphics.gofplots import qqplot
-from statsmodels.graphics.tsaplots import plot_acf
-from statsmodels.tsa.stattools import acf
+from matplotlib import pyplot as plt
 
-# To print matrices and tables in full
-np.set_printoptions(threshold=np.inf, linewidth=np.inf)
-
-# This is a technical command needed to write data in pandas data frames
-pd.options.mode.copy_on_write = True 
-
-stdAll = []
-skewAll = []
-kurtAll = []
-SWp = []
-JBp = []
-L1O = []
-L1A = []
-
-def plots(data, label):
-    plot_acf(data, zero = False)
-    plt.title(label + '\n ACF for Original Values')
-    plt.savefig('O-' + label + '.png')
-    plt.close()
-    plot_acf(abs(data), zero = False)
-    plt.title(label + '\n ACF for Absolute Values')
-    plt.savefig('A-' + label + '.png')
-    plt.close()
-    qqplot(data, line = 's')
-    plt.title(label + '\n Quantile-Quantile Plot vs Normal')
-    plt.savefig('QQ-' + label + '.png')
-    plt.close()
-    
-def analysis(data):
-    stdAll.append(round(np.std(data), 4))
-    skewAll.append(round(stats.skew(data), 3))
-    kurtAll.append(round(stats.kurtosis(data), 3))
-    SWp.append(round(stats.shapiro(data)[1], 3))
-    JBp.append(round(stats.jarque_bera(data)[1], 3))
-    L1O.append(round(sum(abs(acf(data, nlags = 5)[1:])), 3))
-    L1A.append(round(sum(abs(acf(abs(data), nlags = 5)[1:])), 3))
-        
 DF = pd.read_excel('data.xlsx', sheet_name = None)
 dfPrice = DF['main']
 vol = dfPrice['Volatility'].values[1:]
 N = len(vol)
 price = dfPrice['Price'].values
 dividend = dfPrice['Dividends'].values[1:]
-baa = dfPrice['BAA'].values
-
 lvol = np.log(vol)
 total = np.array([np.log(price[k+1] + dividend[k]) - np.log(price[k]) for k in range(N)])
 nUSAret = total/vol
-plots(total, 'USA-returns')
-plots(nUSAret, 'norm-USA-returns')
-analysis(total)
-analysis(nUSAret)
-
 RegVol = OLS(lvol[1:], pd.DataFrame({'const' : 1, 'lag' : lvol[:-1]})).fit()
-RegBAA = OLS(np.diff(np.log(baa)), pd.DataFrame({'const' : 1, 'baa' : np.log(baa)[:-1]})).fit()
+RegUSA = OLS(nUSAret, pd.DataFrame({'const' : 1/vol, 'vol' : 1})).fit()
+print(RegVol.params)
+print(np.std(RegVol.resid))
+print(RegUSA.params)
+print(np.std(RegUSA.resid))
+print(N - 1)
+covVol = np.linalg.inv(np.array([[N - 1, np.sum(lvol[:-1])], [np.sum(lvol[:-1]), np.sum(np.square(lvol[:-1]))]]))
+covUSA = np.linalg.inv(np.array([[N, np.sum(1/vol)], [np.sum(1/vol), np.sum(np.square(1/vol))]])) 
+print(covVol)
+print(covUSA)
+NSIMS = 10000
 
-world = DF['world'] 
-intlReturns = world['International'].values # international returns
-NINTL = len(intlReturns)
-IntlRet = np.log(1 + intlReturns)
-nIntlRet = IntlRet/vol[-NINTL:] # normalized intl returns in %
-plots(IntlRet, 'INTL-returns')
-plots(nIntlRet, 'norm-INTL-returns')
-analysis(IntlRet)
-analysis(nIntlRet)
+def sim(initVol, T):
+    noiseUSA = np.random.normal(0, 0.0162389, (T, NSIMS))
+    noiseVol = np.random.normal(0, 0.364353, (T, NSIMS))
+    simRetUSA = np.zeros((T, NSIMS))
+    simLVol = np.zeros((T+1, NSIMS))
+    simLVol[0] = np.log(initVol) * np.ones(NSIMS)
+    
+    # now comes the simulation itself!
+    # simulate logarithms of volatility as autoregression
+    for t in range(T):
+        simLVol[t + 1] = 0.84785 * np.ones(NSIMS) + 0.620146 * simLVol[t] + noiseVol[t]
+    
+    # take exponents to get volatility
+    simVol = np.exp(simLVol)
+    for t in range(T):
+        simRetUSA[t] = 0.227336 * np.ones(NSIMS) - 0.012476 * simVol[t + 1]  + simVol[t + 1] * noiseUSA[t]
+        
+    return simRetUSA
 
-allRets = ['USA', 'nUSA', 'Intl', 'nIntl']
-statDF = pd.DataFrame({'reg' : allRets, 'stdev' : stdAll, 'skew': skewAll, 'kurt' : kurtAll, 'SW' : SWp, 'JB' : JBp, 'L1O': L1O, 'L1A' : L1A})
-print(statDF)
+def bayesCoeffSim(initVol, T):
+    noiseUSA = np.random.normal(0, 0.0162389, (T, NSIMS))
+    noiseVol = np.random.normal(0, 0.364353, (T, NSIMS))
+    simRetUSA = np.zeros((T, NSIMS))
+    simLVol = np.zeros((T+1, NSIMS))
+    simLVol[0] = np.log(initVol) * np.ones(NSIMS)
+    
+    simCoeffVol = np.random.multivariate_normal([0.84785, 0.620146], covVol * 0.364353**2, NSIMS)
+    simCoeffUSA = np.random.multivariate_normal([-0.012476, 0.227336], covUSA * 0.0162389**2, NSIMS)
+    
+    alpha = simCoeffVol[:, 0]
+    beta = simCoeffVol[:, 1]
+    theta = simCoeffUSA[:, 0]
+    gamma = simCoeffUSA[:, 1]
+    
+    # now comes the simulation itself!
+    # simulate logarithms of volatility as autoregression
+    for t in range(T):
+        simLVol[t + 1] = alpha * np.ones(NSIMS) + beta * simLVol[t] + noiseVol[t]
+    
+    # take exponents to get volatility
+    simVol = np.exp(simLVol)
+    for t in range(T):
+        simRetUSA[t] = gamma * np.ones(NSIMS) + theta * simVol[t + 1]  + simVol[t + 1] * noiseUSA[t]
+        
+    return simRetUSA
 
+def bayesAllSim(initVol, T):
+    noiseUSA = np.random.normal(0, 0.0162389, (T, NSIMS))
+    noiseVol = np.random.normal(0, 0.364353, (T, NSIMS))
+    simRetUSA = np.zeros((T, NSIMS))
+    simLVol = np.zeros((T+1, NSIMS))
+    simLVol[0] = np.log(initVol) * np.ones(NSIMS)
+    
+    simPrecVol = np.random.gamma((N - 1)/2, 2*0.364353**(-2)/(N - 1), NSIMS)
+    simStdVol = np.power(simPrecVol, -0.5)
+    simCoeffVol = np.tile([0.84785, 0.620146], (NSIMS, 1)) + np.random.multivariate_normal([0, 0], covVol, NSIMS) * np.transpose(np.tile(simStdVol, (2, 1)))
+    simPrecUSA = np.random.gamma(N/2, 2*0.0162389**(-2)/N, NSIMS)
+    simStdUSA = np.power(simPrecUSA, -0.5)
+    simCoeffUSA = np.tile([-0.012476, 0.227336], (NSIMS, 1)) + np.random.multivariate_normal([0, 0], covUSA, NSIMS) * np.transpose(np.tile(simStdUSA, (2, 1)))
+    
+    alpha = simCoeffVol[:, 0]
+    beta = simCoeffVol[:, 1]
+    theta = simCoeffUSA[:, 0]
+    gamma = simCoeffUSA[:, 1]
+    
+    # now comes the simulation itself!
+    # simulate logarithms of volatility as autoregression
+    for t in range(T):
+        simLVol[t + 1] = alpha * np.ones(NSIMS) + beta * simLVol[t] + noiseVol[t]
+    
+    # take exponents to get volatility
+    simVol = np.exp(simLVol)
+    for t in range(T):
+        simRetUSA[t] = gamma * np.ones(NSIMS) + theta * simVol[t + 1]  + simVol[t + 1] * noiseUSA[t]
+        
+    return simRetUSA
 
-bonds = DF['bonds']
-wealthBond = bonds['Bond Wealth'].values
-NBOND = len(wealthBond) - 1
-bondRet = np.diff(np.log(wealthBond)) # bond returns in %
+T = 30
+initVol = 20
 
-dfBAA = pd.DataFrame({'const' : 1, 'dur' : np.diff(baa)})
-RegBond = OLS(bondRet - 0.01 * baa[-NBOND-1:-1], dfBAA.iloc[-NBOND:]).fit()
+model0 = sim(initVol, T)
+model1 = bayesCoeffSim(initVol, T)
+model2 = bayesAllSim(initVol, T)
 
-regDF = pd.DataFrame({'const' : 1/vol, 'duration' : np.diff(baa)/vol, 'vol' : 1}) 
-RegUSA = OLS(nUSAret, regDF).fit()
-RegIntl = OLS(nIntlRet, regDF.iloc[-NINTL:]).fit()
-
-allRegs = [RegVol, RegBAA, RegUSA, RegIntl, RegBond]
-allNames = ['vol', 'baa', 'usa-ret', 'intl-ret', 'bond-ret']
-allResiduals = pd.DataFrame(columns = allNames)
-DIM = 5
-
-stdAll = []
-skewAll = []
-kurtAll = []
-SWp = []
-JBp = []
-L1O = []
-L1A = []
-lengths = []
-
-for k in range(DIM):
-    print(allNames[k], '\n') # name of regression
-    regression = allRegs[k] # regression itself
-    print(regression.summary()) # print regression summary
-    print('coefficients')
-    print(regression.params) # print regression parameters
-    resids = regression.resid.values # residuals of this regression
-    lengths.append(len(resids))
-    allResiduals[allNames[k]] = np.pad(resids[::-1], (0, N - lengths[k]), constant_values = np.nan)
-    plots(resids, allNames[k]) # normality and autocorrelation function plots
-    analysis(resids) # are these residuals normal white noise?
-
-corrMatrix = allResiduals.corr()
-print(corrMatrix)
-
-statDF = pd.DataFrame({'reg' : allNames, 'length' : lengths, 'stdev' : stdAll, 'skew': skewAll, 'kurt' : kurtAll, 'SW' : SWp, 'JB' : JBp, 'L1O': L1O, 'L1A' : L1A})
-print(statDF)
+for model in [model0, model1, model2]:
+    avgModel = np.mean(model, axis = 0)
+    print('mean = ', np.mean(avgModel))
+    print('std = ', np.std(avgModel))
+    print('median = ', np.median(avgModel))
+    for percent in [10, 30, 70, 90]:
+        print(str(percent) + '% = ', np.percentile(avgModel, percent))
+    # Now test the withdrawal rule
+    wealth = np.zeros((T+1, NSIMS))
+    wealth[0] = np.ones(NSIMS)
+    for withdrawal in [0.03, 0.04, 0.05]:
+        for t in range(T):
+            wealth[t+1] = wealth[t] * np.exp(model[t]) - withdrawal * (1.04**t) * np.ones(NSIMS)
+        print('withdrawal rate ', withdrawal)
+        print(np.sum(wealth[T] > 0)/NSIMS)
