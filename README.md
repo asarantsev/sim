@@ -27,3 +27,7 @@ main_page.html: Landing page front end for the simulator
 complete_page.html: Front end: version of the simulator with an option to change initial factors
 
 response_page.html: Front end: page after Submit
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+UPDATE: box-cox-vol.py discusses volatility and application of Box-Cox transforms to it. We succeed to make it Gaussian. 
