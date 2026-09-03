@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import scipy
 from statsmodels.graphics.gofplots import qqplot
 from statsmodels.graphics.tsaplots import plot_acf
+from YJX import YJinv
 
 # reading the data file
 DF = pd.read_excel('data2025.xlsx', sheet_name = 'data')
