@@ -4,35 +4,34 @@ from statsmodels.api import OLS
 from scipy import stats
 from matplotlib import pyplot as plt
 
-np.random.seed(0)
 DF = pd.read_excel('data.xlsx', sheet_name = None)
 dfPrice = DF['main']
 vol = dfPrice['Volatility'].values[1:]
+dfWorld = DF['world']
+intl = dfWorld['International'].values
 N = len(vol)
-price = dfPrice['Price'].values
-dividend = dfPrice['Dividends'].values[1:]
+M = len(intl)
 lvol = np.log(vol)
-total = np.array([np.log(price[k+1] + dividend[k]) - np.log(price[k]) for k in range(N)])
-nUSAret = total/vol
+total = np.log(1 + intl) 
+Nret = total/vol[-M:]
 RegVol = OLS(lvol[1:], pd.DataFrame({'const' : 1, 'lag' : lvol[:-1]})).fit()
-RegUSA = OLS(nUSAret, pd.DataFrame({'const' : 1/vol, 'vol' : 1})).fit()
+RegIntl = OLS(Nret, pd.DataFrame({'const' : 1/vol[-M:], 'vol' : 1})).fit()
 intVol = RegVol.params['const']
 slopeVol = RegVol.params['lag']
 stdVol = np.std(RegVol.resid)
-intUSA = RegUSA.params['const']
-slopeUSA = RegUSA.params['vol']
-stdUSA = np.std(RegUSA.resid)
-
+intIntl = RegIntl.params['const']
+slopeIntl = RegIntl.params['vol']
+stdIntl = np.std(RegIntl.resid)
 covVol = np.linalg.inv(np.array([[N - 1, np.sum(lvol[:-1])], [np.sum(lvol[:-1]), np.sum(np.square(lvol[:-1]))]]))
-covUSA = np.linalg.inv(np.array([[N, np.sum(1/vol)], [np.sum(1/vol), np.sum(np.square(1/vol))]])) 
+covIntl = np.linalg.inv(np.array([[M, np.sum(1/vol[-M:])], [np.sum(1/vol[-M:]), np.sum(np.square(1/vol[-M:]))]])) 
 print(covVol)
-print(covUSA)
+print(covIntl)
 NSIMS = 10000
 
 def sim(initVol, T):
-    noiseUSA = np.random.normal(0, stdUSA, (T, NSIMS))
+    noiseIntl = np.random.normal(0, stdIntl, (T, NSIMS))
     noiseVol = np.random.normal(0, stdVol, (T, NSIMS))
-    simRetUSA = np.zeros((T, NSIMS))
+    simRetIntl = np.zeros((T, NSIMS))
     simLVol = np.zeros((T+1, NSIMS))
     simLVol[0] = np.log(initVol) * np.ones(NSIMS)
     
@@ -44,24 +43,24 @@ def sim(initVol, T):
     # take exponents to get volatility
     simVol = np.exp(simLVol)
     for t in range(T):
-        simRetUSA[t] = intUSA * np.ones(NSIMS) + slopeUSA * simVol[t + 1]  + simVol[t + 1] * noiseUSA[t]
+        simRetIntl[t] = intIntl * np.ones(NSIMS) + slopeIntl * simVol[t + 1]  + simVol[t + 1] * noiseIntl[t]
         
-    return simRetUSA
+    return simRetIntl
 
 def bayesCoeffSim(initVol, T):
-    noiseUSA = np.random.normal(0, stdUSA, (T, NSIMS))
+    noiseIntl = np.random.normal(0, stdIntl, (T, NSIMS))
     noiseVol = np.random.normal(0, stdVol, (T, NSIMS))
-    simRetUSA = np.zeros((T, NSIMS))
+    simRetIntl = np.zeros((T, NSIMS))
     simLVol = np.zeros((T+1, NSIMS))
     simLVol[0] = np.log(initVol) * np.ones(NSIMS)
     
     simCoeffVol = np.random.multivariate_normal([intVol, slopeVol], covVol * stdVol**2, NSIMS)
-    simCoeffUSA = np.random.multivariate_normal([slopeUSA, intUSA], covUSA * stdUSA**2, NSIMS)
+    simCoeffIntl = np.random.multivariate_normal([slopeIntl, intIntl], covIntl * stdIntl**2, NSIMS)
     
     alpha = simCoeffVol[:, 0]
     beta = simCoeffVol[:, 1]
-    theta = simCoeffUSA[:, 0]
-    gamma = simCoeffUSA[:, 1]
+    theta = simCoeffIntl[:, 0]
+    gamma = simCoeffIntl[:, 1]
     
     # now comes the simulation itself!
     # simulate logarithms of volatility as autoregression
@@ -71,28 +70,28 @@ def bayesCoeffSim(initVol, T):
     # take exponents to get volatility
     simVol = np.exp(simLVol)
     for t in range(T):
-        simRetUSA[t] = gamma * np.ones(NSIMS) + theta * simVol[t + 1]  + simVol[t + 1] * noiseUSA[t]
+        simRetIntl[t] = gamma * np.ones(NSIMS) + theta * simVol[t + 1]  + simVol[t + 1] * noiseIntl[t]
         
-    return simRetUSA
+    return simRetIntl
 
 def bayesAllSim(initVol, T):
-    noiseUSA = np.random.normal(0, stdUSA, (T, NSIMS))
+    noiseIntl = np.random.normal(0, stdIntl, (T, NSIMS))
     noiseVol = np.random.normal(0, stdVol, (T, NSIMS))
-    simRetUSA = np.zeros((T, NSIMS))
+    simRetIntl = np.zeros((T, NSIMS))
     simLVol = np.zeros((T+1, NSIMS))
     simLVol[0] = np.log(initVol) * np.ones(NSIMS)
     
     simPrecVol = np.random.gamma((N - 1)/2, 2*stdVol**(-2)/(N - 1), NSIMS)
     simStdVol = np.power(simPrecVol, -0.5)
     simCoeffVol = np.tile([intVol, slopeVol], (NSIMS, 1)) + np.random.multivariate_normal([0, 0], covVol, NSIMS) * np.transpose(np.tile(simStdVol, (2, 1)))
-    simPrecUSA = np.random.gamma(N/2, 2*stdUSA**(-2)/N, NSIMS)
-    simStdUSA = np.power(simPrecUSA, -0.5)
-    simCoeffUSA = np.tile([slopeUSA, intUSA], (NSIMS, 1)) + np.random.multivariate_normal([0, 0], covUSA, NSIMS) * np.transpose(np.tile(simStdUSA, (2, 1)))
+    simPrecIntl = np.random.gamma(M/2, 2*stdIntl**(-2)/M, NSIMS)
+    simStdIntl = np.power(simPrecIntl, -0.5)
+    simCoeffIntl = np.tile([slopeIntl, intIntl], (NSIMS, 1)) + np.random.multivariate_normal([0, 0], covIntl, NSIMS) * np.transpose(np.tile(simStdIntl, (2, 1)))
     
     alpha = simCoeffVol[:, 0]
     beta = simCoeffVol[:, 1]
-    theta = simCoeffUSA[:, 0]
-    gamma = simCoeffUSA[:, 1]
+    theta = simCoeffIntl[:, 0]
+    gamma = simCoeffIntl[:, 1]
     
     # now comes the simulation itself!
     # simulate logarithms of volatility as autoregression
@@ -102,9 +101,9 @@ def bayesAllSim(initVol, T):
     # take exponents to get volatility
     simVol = np.exp(simLVol)
     for t in range(T):
-        simRetUSA[t] = gamma * np.ones(NSIMS) + theta * simVol[t + 1]  + simVol[t + 1] * noiseUSA[t]
+        simRetIntl[t] = gamma * np.ones(NSIMS) + theta * simVol[t + 1]  + simVol[t + 1] * noiseIntl[t]
         
-    return simRetUSA
+    return simRetIntl
 
 T = 30
 initVol = 20
