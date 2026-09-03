@@ -16,9 +16,6 @@ def YJinv(y, lam):
     x : ndarray or scalar
         Original value(s).
     """
-    if lam == 0 or lam == 2:
-        raise ValueError("This function requires lambda != 0 and lambda != 2.")
-
     y = np.asarray(y, dtype=float)
 
     x = np.empty_like(y)
